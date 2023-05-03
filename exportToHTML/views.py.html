@@ -1,0 +1,118 @@
+<html>
+<head>
+<title>views.py</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<style type="text/css">
+.s0 { color: #cc7832;}
+.s1 { color: #a9b7c6;}
+.s2 { color: #6a8759;}
+.s3 { color: #6897bb;}
+</style>
+</head>
+<body bgcolor="#2b2b2b">
+<table CELLSPACING=0 CELLPADDING=5 COLS=1 WIDTH="100%" BGCOLOR="#606060" >
+<tr><td><center>
+<font face="Arial, Helvetica" color="#000000">
+views.py</font>
+</center></td></tr></table>
+<pre><span class="s0">from </span><span class="s1">django.shortcuts </span><span class="s0">import </span><span class="s1">render</span>
+<span class="s0">from </span><span class="s1">. forms </span><span class="s0">import </span><span class="s1">MyForm</span>
+<span class="s0">from </span><span class="s1">rest_framework </span><span class="s0">import </span><span class="s1">viewsets</span>
+<span class="s0">from </span><span class="s1">rest_framework.decorators </span><span class="s0">import </span><span class="s1">api_view</span>
+<span class="s0">from </span><span class="s1">django.core </span><span class="s0">import </span><span class="s1">serializers</span>
+<span class="s0">from </span><span class="s1">rest_framework.response </span><span class="s0">import </span><span class="s1">Response</span>
+<span class="s0">from </span><span class="s1">rest_framework </span><span class="s0">import </span><span class="s1">status</span>
+<span class="s0">from </span><span class="s1">django.http </span><span class="s0">import </span><span class="s1">JsonResponse</span>
+<span class="s0">from </span><span class="s1">rest_framework.parsers </span><span class="s0">import </span><span class="s1">JSONParser</span>
+<span class="s0">from </span><span class="s1">. models </span><span class="s0">import </span><span class="s1">approval</span>
+<span class="s0">from </span><span class="s1">. serializers </span><span class="s0">import </span><span class="s1">approvalSerializers</span>
+<span class="s0">import </span><span class="s1">pickle</span>
+<span class="s0">import </span><span class="s1">joblib</span>
+<span class="s0">import </span><span class="s1">json</span>
+<span class="s0">import </span><span class="s1">numpy </span><span class="s0">as </span><span class="s1">np</span>
+<span class="s0">from </span><span class="s1">sklearn </span><span class="s0">import </span><span class="s1">preprocessing</span>
+<span class="s0">import </span><span class="s1">pandas </span><span class="s0">as </span><span class="s1">pd</span>
+
+
+<span class="s0">class </span><span class="s1">ApprovalsView(viewsets.ModelViewSet):</span>
+	<span class="s1">queryset = approval.objects.all()</span>
+	<span class="s1">serializer_class = approvalSerializers</span>
+
+<span class="s1">@api_view([</span><span class="s2">&quot;GET&quot;</span><span class="s1">])</span>
+<span class="s0">def </span><span class="s1">index(request):</span>
+    <span class="s1">return_data = {</span>
+        <span class="s2">&quot;error_code&quot; </span><span class="s1">: </span><span class="s2">&quot;0&quot;</span><span class="s0">,</span>
+        <span class="s2">&quot;info&quot; </span><span class="s1">: </span><span class="s2">&quot;success&quot;</span><span class="s0">,</span>
+    <span class="s1">}</span>
+
+
+
+
+<span class="s0">def </span><span class="s1">myform(request):</span>
+    <span class="s0">if </span><span class="s1">request.method == </span><span class="s2">&quot;POST&quot;</span><span class="s1">:</span>
+        <span class="s1">form = MyForm(request.POST)</span>
+        <span class="s0">if </span><span class="s1">form.is_valid():</span>
+            <span class="s1">myform = form.save(commit = </span><span class="s0">False</span><span class="s1">)</span>
+
+        <span class="s0">else</span><span class="s1">:</span>
+            <span class="s1">form = MyForm()</span>
+
+<span class="s1">@api_view([</span><span class="s2">&quot;POST&quot;</span><span class="s1">])</span>
+<span class="s0">def </span><span class="s1">approvereject(request):</span>
+    <span class="s0">try</span><span class="s1">:</span>
+        <span class="s1">mdl = joblib.load(</span><span class="s2">&quot;C:/Users/Tim/recidivism_model.pkl&quot;</span><span class="s1">)</span>
+        <span class="s1">mydata = pd.read_csv(</span><span class="s2">'C:/Users/Tim/small_rec_dataset.csv'</span><span class="s1">)</span>
+        <span class="s1">mydata = request.data</span>
+        <span class="s1">unit = np.array(list(mydata.values()))</span>
+        <span class="s1">unit = unit.reshape(</span><span class="s3">1</span><span class="s0">, </span><span class="s1">-</span><span class="s3">1</span><span class="s1">)</span>
+        <span class="s1">y_pred = mdl.predict(unit)</span>
+        <span class="s1">y_pred = (y_pred &gt; </span><span class="s3">0.58</span><span class="s1">)</span>
+        <span class="s1">newdf = pd.DataFrame(y_pred</span><span class="s0">, </span><span class="s1">columns=[</span><span class="s2">'Status'</span><span class="s1">])</span>
+        <span class="s1">newdf = newdf.replace({</span><span class="s3">1</span><span class="s1">: </span><span class="s2">'High Recidivism Risk'</span><span class="s0">, </span><span class="s3">0</span><span class="s1">: </span><span class="s2">'Low Recidivism Risk'</span><span class="s1">})</span>
+        <span class="s0">return </span><span class="s1">JsonResponse(</span><span class="s2">'Your Status is {}'</span><span class="s1">.format(newdf)</span><span class="s0">, </span><span class="s1">safe=</span><span class="s0">False</span><span class="s1">)</span>
+    <span class="s0">except </span><span class="s1">ValueError </span><span class="s0">as </span><span class="s1">e:</span>
+        <span class="s0">return </span><span class="s1">Response(e.args[</span><span class="s3">0</span><span class="s1">]</span><span class="s0">, </span><span class="s1">status.HTTP_400_BAD_REQUEST)</span>
+
+
+<span class="s0">def </span><span class="s1">cxcontact(request):</span>
+    <span class="s0">if </span><span class="s1">request.method == </span><span class="s2">'POST'</span><span class="s1">:</span>
+        <span class="s1">form = approval(request.POST)</span>
+        <span class="s0">if </span><span class="s1">form.is_valid():</span>
+            <span class="s1">firstname = form.cleaned_data[</span><span class="s2">'firstname'</span><span class="s1">]</span>
+            <span class="s1">lastname = form.cleaned_data[</span><span class="s2">'lastname'</span><span class="s1">]</span>
+            <span class="s1">gender = form.cleaned_data[</span><span class="s2">'gender'</span><span class="s1">]</span>
+            <span class="s1">race = form.cleaned_data[</span><span class="s2">'race'</span><span class="s1">]</span>
+            <span class="s1">releaseage = form.cleaned_data[</span><span class="s2">'releaseage'</span><span class="s1">]</span>
+            <span class="s1">gangaffilation = form.cleaned_data[</span><span class="s2">'gangaffilation'</span><span class="s1">]</span>
+            <span class="s1">riskscore = form.cleaned_data[</span><span class="s2">'riskscore'</span><span class="s1">]</span>
+            <span class="s1">edlevel = form.cleaned_data[</span><span class="s2">'edlevel'</span><span class="s1">]</span>
+            <span class="s1">dependents = form.cleaned_data[</span><span class="s2">'dependents'</span><span class="s1">]</span>
+            <span class="s1">prisonoffense = form.cleaned_data[</span><span class="s2">'prisonoffense'</span><span class="s1">]</span>
+            <span class="s1">prisonyears = form.cleaned_data[</span><span class="s2">'prisonyears'</span><span class="s1">]</span>
+            <span class="s1">priorarrestfelony = form.cleaned_data[</span><span class="s2">'priorarrestfelony'</span><span class="s1">]</span>
+            <span class="s1">priorarrestmisd = form.cleaned_data[</span><span class="s2">'priorarrestmisd'</span><span class="s1">]</span>
+            <span class="s1">priorarrestsvio = form.cleaned_data[</span><span class="s2">'priorarrestsvio'</span><span class="s1">]</span>
+            <span class="s1">priorarrestsprop = form.cleaned_data[</span><span class="s2">'priorarrestsprop'</span><span class="s1">]</span>
+            <span class="s1">priorarrestsdrug = form.cleaned_data[</span><span class="s2">'priorarrestsdrug'</span><span class="s1">]</span>
+            <span class="s1">priorpvcharges = form.cleaned_data[</span><span class="s2">'priorpvcharges'</span><span class="s1">]</span>
+            <span class="s1">priorconvprop = form.cleaned_data[</span><span class="s2">'priorconvprop'</span><span class="s1">]</span>
+            <span class="s1">priorconvdrug = form.cleaned_data[</span><span class="s2">'priorconvdrug'</span><span class="s1">]</span>
+            <span class="s1">delenqreports = form.cleaned_data[</span><span class="s2">'delenqreports'</span><span class="s1">]</span>
+            <span class="s1">progattend = form.cleaned_data[</span><span class="s2">'progattend'</span><span class="s1">]</span>
+            <span class="s1">progunexabs = form.cleaned_data[</span><span class="s2">'progunexabs'</span><span class="s1">]</span>
+            <span class="s1">residchanges = form.cleaned_data[</span><span class="s2">'residchanges'</span><span class="s1">]</span>
+            <span class="s1">avgdayperdrugtest = form.cleaned_data[</span><span class="s2">'avgdayperdrugtest'</span><span class="s1">]</span>
+            <span class="s1">positivethc = form.cleaned_data[</span><span class="s2">'positivethc'</span><span class="s1">]</span>
+            <span class="s1">positivecocaine = form.cleaned_data[</span><span class="s2">'positivecocaine'</span><span class="s1">]</span>
+            <span class="s1">positivemeth = form.cleaned_data[</span><span class="s2">'positivemeth'</span><span class="s1">]</span>
+            <span class="s1">positiveother = form.cleaned_data[</span><span class="s2">'positiveother'</span><span class="s1">]</span>
+            <span class="s1">percentemp = form.cleaned_data[</span><span class="s2">'percentemp'</span><span class="s1">]</span>
+            <span class="s1">jobsperyear = form.cleaned_data[</span><span class="s2">'jobsperyear'</span><span class="s1">]</span>
+            <span class="s1">empexempt = form.cleaned_data[</span><span class="s2">'empexempt'</span><span class="s1">]</span>
+            <span class="s1">print(firstname</span><span class="s0">, </span><span class="s1">lastname</span><span class="s0">, </span><span class="s1">releaseage</span><span class="s0">, </span><span class="s1">gangaffilation</span><span class="s0">, </span><span class="s1">dependents)</span>
+
+    <span class="s1">form = recidivate()</span>
+
+    <span class="s0">return </span><span class="s1">renderers(request</span><span class="s0">, </span><span class="s2">'myform/cxform.html'</span><span class="s0">, </span><span class="s1">{</span><span class="s2">'form'</span><span class="s1">:form})</span></pre>
+</body>
+</html>
